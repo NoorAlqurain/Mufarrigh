@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>مُفرِّغ الصوت</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout: right-hand category rail + main column (input cards → progress → transcript → library) */
+:root{
+  --bg:#F3F6F5; --surface:#FFFFFF; --sunk:#E8EEEC; --ink:#13201D; --muted:#5B6D68; --line:#D3DDDA;
+  --accent:#0E6B58; --accent-ink:#FFFFFF; --accent-soft:#D6ECE6; --rec:#C8372D; --rec-soft:#F7DEDB; --ok:#2E7D4F;
+  --f-display:"Reem Kufi","Noto Kufi Arabic",Tahoma,sans-serif;
+  --f-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --r:12px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --surface:#16201D; --sunk:#1D2925; --ink:#E6EEEB; --muted:#93A6A0; --line:#2B3A35;
+  --accent:#3FB397; --accent-ink:#06120F; --accent-soft:#18332C; --rec:#F06A5E; --rec-soft:#3A1E1B; --ok:#5CC28A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --surface:#16201D; --sunk:#1D2925; --ink:#E6EEEB; --muted:#93A6A0; --line:#2B3A35;
+  --accent:#3FB397; --accent-ink:#06120F; --accent-soft:#18332C; --rec:#F06A5E; --rec-soft:#3A1E1B; --ok:#5CC28A; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.7 var(--f-body);padding-inline:16px;padding-block:0 48px}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;margin:0;text-wrap:balance;line-height:1.3}
+.wrap{max-width:1180px;margin-inline:auto}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;padding-block:20px 18px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{font-size:1.7rem;letter-spacing:0}
+.brand small{display:block;color:var(--muted);font-size:.85rem;font-family:var(--f-body)}
+.mark{width:42px;height:42px;border-radius:10px;background:var(--accent);display:grid;place-items:center;flex:none}
+.mark svg{width:26px;height:26px}
+.settings{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:.9rem}
+.settings label{color:var(--muted)}
+.seg{display:inline-flex;background:var(--sunk);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:5px 14px;border-radius:999px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+aside.cats{position:sticky;top:16px;display:flex;flex-direction:column;gap:10px}
+@media (max-width:860px){aside.cats{position:static}}
+.eyebrow{font-size:.78rem;color:var(--muted);letter-spacing:.02em;font-weight:600}
+.catlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.catlist li{display:flex;align-items:center;gap:6px;border-radius:8px}
+.catlist .pick{flex:1;min-width:0;display:flex;justify-content:space-between;gap:8px;border:0;background:transparent;text-align:start;padding:8px 10px;border-radius:8px;cursor:pointer}
+.catlist .pick:hover{background:var(--sunk)}
+.catlist li.on .pick{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.catlist .pick span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.85rem}
+.iconbtn{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:6px;border-radius:6px;line-height:0}
+.iconbtn:hover{background:var(--sunk);color:var(--ink)}
+.iconbtn svg{width:16px;height:16px}
+.addcat{display:flex;gap:6px}
+.addcat input{flex:1;min-width:0}
+input[type=text],input[type=search],textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--rec)}
+.btn svg{width:17px;height:17px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+main{display:flex;flex-direction:column;gap:24px;min-width:0}
+.inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px}
+.drop{border:2px dashed var(--line);background:var(--surface);border-radius:var(--r);padding:28px 20px;text-align:center;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop svg{width:40px;height:40px;color:var(--accent)}
+.drop h2{font-size:1.2rem}
+.drop p{margin:0;color:var(--muted);font-size:.9rem}
+.fmt{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px}
+.fmt span{font-size:.75rem;background:var(--sunk);padding:2px 8px;border-radius:999px;color:var(--muted);direction:ltr}
+.rec{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.rec h2{font-size:1.2rem}
+.recbtn{width:76px;height:76px;border-radius:50%;border:0;background:var(--rec);color:#fff;cursor:pointer;display:grid;place-items:center;box-shadow:0 0 0 6px var(--rec-soft);transition:transform .15s}
+.recbtn:hover{transform:scale(1.04)}
+.recbtn svg{width:32px;height:32px}
+.recbtn.on{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 14px var(--rec-soft)}}
+@media (prefers-reduced-motion:reduce){.recbtn.on{animation:none}}
+.timer{font-variant-numeric:tabular-nums;font-size:1.3rem;font-weight:600;direction:ltr}
+canvas.wave{width:100%;height:48px;display:block}
+.live{width:100%;min-height:2.4em;background:var(--sunk);border-radius:8px;padding:8px 12px;text-align:start;color:var(--ink)}
+.live i{color:var(--muted);font-style:normal}
+.dest{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.92rem;color:var(--muted)}
+.jobs{display:flex;flex-direction:column;gap:10px}
+.job{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center}
+.job .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.job .st{color:var(--muted);font-size:.85rem}
+.bar{grid-column:1/-1;height:6px;background:var(--sunk);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.bar.indet i{width:30%;animation:slide 1.2s linear infinite}
+@keyframes slide{from{transform:translateX(100%)}to{transform:translateX(-340%)}}
+.job.err .st{color:var(--rec)}
+.job.done .st{color:var(--ok)}
+.doc-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.doc-title{font-family:var(--f-display);font-size:1.35rem;font-weight:700;border:1px solid transparent;background:transparent;padding:4px 8px;border-radius:8px;flex:1;min-width:200px}
+.doc-title:hover,.doc-title:focus{border-color:var(--line);background:var(--bg)}
+.meta{display:flex;flex-wrap:wrap;gap:8px 16px;color:var(--muted);font-size:.85rem;margin-bottom:12px;align-items:center}
+.meta b{font-weight:600;color:var(--ink)}
+.tools{display:flex;flex-wrap:wrap;gap:8px}
+audio{width:100%;margin-bottom:12px}
+textarea.text{width:100%;min-height:260px;resize:vertical;font-size:1.08rem;line-height:2;padding:16px 18px}
+.segments{display:flex;flex-direction:column;gap:2px;max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px}
+.segments button{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;text-align:start;border:0;background:transparent;padding:6px 8px;border-radius:6px;cursor:pointer;line-height:1.8}
+.segments button:hover{background:var(--sunk)}
+.segments time{font-variant-numeric:tabular-nums;color:var(--accent);direction:ltr;font-size:.85rem;padding-top:3px}
+.saved{font-size:.82rem;color:var(--ok)}
+.lib-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.lib-head h2{font-size:1.25rem}
+.lib-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.items li{border-top:1px solid var(--line)}
+.items li:first-child{border-top:0}
+.item{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;text-align:start;border:0;background:transparent;padding:12px 6px;cursor:pointer;border-radius:8px}
+.item:hover{background:var(--sunk)}
+.item.on{background:var(--accent-soft)}
+.item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .d{color:var(--muted);font-size:.82rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .p{grid-column:1/-1;color:var(--muted);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);margin-inline-start:6px;font-weight:500}
+.empty{color:var(--muted);text-align:center;padding:28px 12px}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--rec-soft);border-radius:8px;padding:8px 12px;font-size:.9rem}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.toast{position:fixed;inset-inline:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));margin-inline:auto;width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:.92rem;z-index:20}
+.hint{background:var(--accent-soft);border-radius:var(--r);padding:12px 16px;font-size:.9rem}
+.hint b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 26 26" fill="none" stroke="var(--accent-ink)" stroke-width="2.2" stroke-linecap="round"><path d="M3 13v0M7 9v8M11 5v16M15 9v8M19 11v4M23 13v0"/></svg>
+      </div>
+      <div><h1>مُفرِّغ الصوت</h1><small>تفريغ الصوتيات العربية إلى نص مكتوب</small></div>
+    </div>
+    <div class="settings">
+      <div><label for="model">دقة التفريغ</label>
+        <select id="model">
+          <option value="Xenova/whisper-small">دقيق (يُنصح به للعربي)</option>
+          <option value="Xenova/whisper-base">سريع (أقل دقة)</option>
+        </select>
+      </div>
+      <div><span class="eyebrow" id="outLbl">النص الناتج</span>
+        <div class="seg" role="group" aria-labelledby="outLbl" id="outSeg">
+          <button type="button" data-out="page" aria-pressed="true">يظهر في الموقع</button>
+          <button type="button" data-out="word" aria-pressed="false">يُحفظ كملف وورد</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <aside class="cats" aria-label="التصنيفات">
+      <span class="eyebrow">التصنيفات</span>
+      <ul class="catlist" id="catList"></ul>
+      <form class="addcat" id="addCat">
+        <input type="text" id="newCat" placeholder="تصنيف جديد، مثلاً: محاضرات" aria-label="اسم التصنيف الجديد" maxlength="40">
+        <button class="btn primary" type="submit">إضافة</button>
+      </form>
+      <div id="catConfirm"></div>
+    </aside>
+
+    <main>
+      <div class="dest card" style="padding:12px 16px">
+        <label for="destCat">احفظ التسجيلات والملفات الجديدة في:</label>
+        <select id="destCat"></select>
+      </div>
+
+      <section class="inputs">
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="ارفع ملفات صوتية">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <h2>اسحب الملف الصوتي وأفلته هنا</h2>
+          <p>أو اضغط لاختيار ملف من جهازك، ويمكنك اختيار أكثر من ملف</p>
+          <div class="fmt"><span>MP3</span><span>WAV</span><span>M4A</span><span>OGG</span><span>OPUS</span><span>FLAC</span><span>AAC</span><span>WEBM</span><span>MP4</span></div>
+          <input type="file" id="fileIn" accept="audio/*,video/mp4,video/webm,.mp3,.wav,.m4a,.ogg,.oga,.opus,.flac,.aac,.webm,.mp4,.amr,.3gp,.wma" multiple hidden>
+        </div>
+
+        <div class="card rec">
+          <h2>سجّل صوتك الآن</h2>
+          <button class="recbtn" id="recBtn" type="button" aria-label="ابدأ التسجيل">
+            <svg id="recIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <div class="timer" id="timer">00:00</div>
+          <canvas class="wave" id="wave" width="600" height="48" aria-hidden="true"></canvas>
+          <div class="live" id="live" aria-live="polite"><i>سيظهر الكلام هنا أثناء التسجيل</i></div>
+        </div>
+      </section>
+
+      <section class="card" id="jobsCard" hidden>
+        <span class="eyebrow">قيد التفريغ</span>
+        <div class="jobs" id="jobs" style="margin-top:10px"></div>
+        <p class="note" id="firstLoad" hidden style="margin-top:10px">أول تفريغ يحمّل نموذج التعرّف على الكلام (حوالي ٢٥٠ ميجا للدقيق) مرة واحدة فقط، وبعدها يشتغل أسرع. كل شيء يتم على جهازك ولا يُرفع الصوت لأي خادم.</p>
+      </section>
+
+      <section class="card" id="docCard" hidden>
+        <div class="doc-head">
+          <input class="doc-title" id="docTitle" type="text" aria-label="عنوان النص" maxlength="120">
+          <span class="saved" id="savedTag" hidden>تم الحفظ</span>
+        </div>
+        <div class="meta" id="docMeta"></div>
+        <audio id="player" controls hidden></audio>
+        <div class="seg" role="group" aria-label="طريقة العرض" id="viewSeg" style="margin-bottom:12px">
+          <button type="button" data-view="text" aria-pressed="true">النص كامل</button>
+          <button type="button" data-view="seg" aria-pressed="false">مقاطع بالتوقيت</button>
+        </div>
+        <textarea class="text" id="docText" dir="rtl" aria-label="النص المفرّغ"></textarea>
+        <div class="segments" id="segments" hidden></div>
+        <div class="tools" style="margin-top:14px">
+          <button class="btn primary" id="wordBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/></svg>تنزيل ملف وورد</button>
+          <button class="btn" id="copyBtn" type="button">نسخ النص</button>
+          <button class="btn" id="redoBtn" type="button" hidden>إعادة التفريغ بدقة أعلى</button>
+          <label class="btn" for="moveCat" style="cursor:default">نقل إلى <select id="moveCat" style="border:0;padding:0 4px;background:transparent"></select></label>
+          <button class="btn danger" id="delBtn" type="button">حذف</button>
+        </div>
+        <div id="docConfirm" style="margin-top:10px"></div>
+      </section>
+
+      <section class="card">
+        <div class="lib-head">
+          <h2 id="libTitle">كل النصوص</h2>
+          <div class="lib-tools">
+            <input type="search" id="search" placeholder="ابحث في النصوص" aria-label="ابحث في النصوص">
+            <button class="btn" id="exportCat" type="button">تصدير الكل إلى وورد</button>
+          </div>
+        </div>
+        <ul class="items" id="items"></ul>
+      </section>
+
+      <div class="hint" id="envHint" hidden></div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = s%60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : String(m).padStart(2,'0')) + ':' + String(x).padStart(2,'0'); };
+const fmtDate = t => new Date(t).toLocaleString('ar-SA-u-ca-gregory-nu-latn', {year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+let toastT;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+const prefs = { get(k, d){ try { return localStorage.getItem('mf.' + k) ?? d; } catch { return d; } }, set(k, v){ try { localStorage.setItem('mf.' + k, v); } catch {} } };
+
+/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+const store = (() => {
+  let db = null; const mem = { cats: new Map(), items: new Map() };
+  const open = () => new Promise(res => {
+    try {
+      const r = indexedDB.open('mufarrigh', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('cats', {keyPath:'id'}); d.createObjectStore('items', {keyPath:'id'}); };
+      r.onsuccess = () => { db = r.result; res(); };
+      r.onerror = () => res();
+    } catch { res(); }
+  });
+  const tx = (name, mode, fn) => new Promise((res, rej) => {
+    if (!db) { res(fn(null)); return; }
+    const t = db.transaction(name, mode); const s = t.objectStore(name); let out;
+    const r = fn(s); if (r && 'onsuccess' in r) r.onsuccess = () => out = r.result;
+    t.oncomplete = () => res(out); t.onerror = () => rej(t.error);
+  });
+  return {
+    open,
+    all: name => db ? tx(name, 'readonly', s => s.getAll()) : Promise.resolve([...mem[name].values()]),
+    put: (name, v) => db ? tx(name, 'readwrite', s => s.put(v)) : Promise.resolve(mem[name].set(v.id, v)),
+    del: (name, id) => db ? tx(name, 'readwrite', s => s.delete(id)) : Promise.resolve(mem[name].delete(id)),
+    persistent: () => !!db
+  };
+})();
+
+/* ---------- state ---------- */
+const S = { cats: [], items: [], filter: 'all', current: null, out: prefs.get('out', 'page'), view: 'text', query: '' };
+const NONE = 'none';
+const catName = id => id === NONE ? 'بدون تصنيف' : (S.cats.find(c => c.id === id)?.name || 'بدون تصنيف');
+
+async function load(){
+  await store.open();
+  S.cats = (await store.all('cats')).sort((a,b) => a.created - b.created);
+  S.items = (await store.all('items')).sort((a,b) => b.created - a.created);
+  if (!S.cats.length && !S.items.length) {
+    for (const n of ['محاضرات', 'اجتماعات', 'ملاحظات شخصية']) { const c = {id: uid(), name: n, created: Date.now() + S.cats.length}; S.cats.push(c); await store.put('cats', c); }
+  }
+  const d = prefs.get('dest', S.cats[0]?.id || NONE);
+  S.dest = (d === NONE || S.cats.some(c => c.id === d)) ? d : NONE;
+  renderAll();
+  if (!store.persistent()) toast('المتصفح لا يسمح بالحفظ الدائم هنا، النصوص ستبقى حتى تغلق الصفحة فقط');
+}
+
+/* ---------- rendering ---------- */
+const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>';
+const ICON_DEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>';
+
+function renderCats(){
+  const counts = {}; S.items.forEach(i => counts[i.cat] = (counts[i.cat] || 0) + 1);
+  const rows = [{id:'all', name:'كل النصوص', n:S.items.length, fixed:true},
+    ...S.cats.map(c => ({id:c.id, name:c.name, n:counts[c.id] || 0})),
+    {id:NONE, name:'بدون تصنيف', n:counts[NONE] || 0, fixed:true}];
+  $('#catList').innerHTML = rows.map(r => `<li class="${S.filter === r.id ? 'on' : ''}" data-id="${r.id}">
+    <button class="pick" type="button" data-act="pick"><span>${esc(r.name)}</span><span class="count">${r.n}</span></button>
+    ${r.fixed ? '' : `<button class="iconbtn" type="button" data-act="rename" aria-label="تعديل اسم ${esc(r.name)}">${ICON_EDIT}</button><button class="iconbtn" type="button" data-act="del" aria-label="حذف ${esc(r.name)}">${ICON_DEL}</button>`}
+  </li>`).join('');
+  const opts = [...S.cats.map(c => `<option value="${c.id}">${esc(c.name)}</option>`), `<option value="${NONE}">بدون تصنيف</option>`].join('');
+  $('#destCat').innerHTML = opts; $('#destCat').value = S.dest;
+  $('#moveCat').innerHTML = opts;
+}
+
+function renderItems(){
+  $('#libTitle').textContent = S.filter === 'all' ? 'كل النصوص' : catName(S.filter);
+  const q = S.query.trim();
+  const list = S.items.filter(i => (S.filter === 'all' || i.cat === S.filter) && (!q || i.title.includes(q) || (i.text || '').includes(q)));
+  $('#exportCat').disabled = !list.length;
+  if (!list.length) {
+    $('#items').innerHTML = `<li class="empty">${q ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد نصوص هنا بعد. ارفع ملفًا صوتيًا أو سجّل صوتك وسيظهر النص هنا.'}</li>`;
+    return;
+  }
+  $('#items').innerHTML = list.map(i => `<li><button class="item ${S.current === i.id ? 'on' : ''}" type="button" data-id="${i.id}">
+    <span class="t">${esc(i.title)}${S.filter === 'all' ? `<span class="tag">${esc(catName(i.cat))}</span>` : ''}</span>
+    <span class="d">${i.duration ? fmtTime(i.duration) + ' · ' : ''}${fmtDate(i.created)}</span>
+    <span class="p">${esc((i.text || '…').slice(0, 160))}</span></button></li>`).join('');
+}
+
+function renderDoc(){
+  const it = S.items.find(i => i.id === S.current);
+  $('#docCard').hidden = !it; $('#docConfirm').innerHTML = '';
+  if (!it) return;
+  $('#docTitle').value = it.title;
+  $('#docText').value = it.text || '';
+  $('#docMeta').innerHTML = `<span>التصنيف: <b>${esc(catName(it.cat))}</b></span><span>${fmtDate(it.created)}</span>${it.duration ? `<span>المدة: <b style="direction:ltr;display:inline-block">${fmtTime(it.duration)}</b></span>` : ''}<span>${it.source === 'rec' ? 'تسجيل مباشر' : 'ملف مرفوع'}</span>`;
+  $('#moveCat').value = it.cat;
+  const p = $('#player');
+  if (p.dataset.id !== it.id) { if (p.src) URL.revokeObjectURL(p.src); p.removeAttribute('src'); p.dataset.id = it.id; if (it.audio) p.src = URL.createObjectURL(it.audio); }
+  p.hidden = !it.audio;
+  $('#redoBtn').hidden = !(it.audio && it.engine === 'live');
+  const hasSeg = Array.isArray(it.chunks) && it.chunks.length > 0;
+  $('#viewSeg').hidden = !hasSeg;
+  const v = hasSeg ? S.view : 'text';
+  $('#viewSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
+  $('#docText').hidden = v !== 'text'; $('#segments').hidden = v !== 'seg';
+  if (hasSeg) $('#segments').innerHTML = it.chunks.map(c => `<button type="button" data-t="${c.s}"><time>${fmtTime(c.s)}</time><span>${esc(c.t)}</span></button>`).join('');
+}
+function renderAll(){ renderCats(); renderItems(); renderDoc(); }
+
+/* ---------- categories ---------- */
+$('#addCat').addEventListener('submit', async e => {
+  e.preventDefault(); const n = $('#newCat').value.trim(); if (!n) return;
+  if (S.cats.some(c => c.name === n)) { toast('يوجد تصنيف بهذا الاسم'); return; }
+  const c = {id: uid(), name: n, created: Date.now()}; S.cats.push(c); await store.put('cats', c);
+  $('#newCat').value = ''; S.filter = c.id; renderAll(); toast('أُضيف تصنيف «' + n + '»');
+});
+$('#catList').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const li = b.closest('li'), id = li.dataset.id, act = b.dataset.act;
+  if (act === 'pick') { S.filter = id; S.query = ''; $('#search').value = ''; renderCats(); renderItems(); }
+  if (act === 'rename') {
+    const c = S.cats.find(x => x.id === id);
+    li.innerHTML = `<form class="addcat" style="flex:1"><input type="text" value="${esc(c.name)}" maxlength="40" aria-label="الاسم الجديد"><button class="btn primary" type="submit">حفظ</button></form>`;
+    const f = li.querySelector('form'), inp = f.querySelector('input'); inp.focus(); inp.select();
+    f.addEventListener('submit', async ev => { ev.preventDefault(); const n = inp.value.trim(); if (n) { c.name = n; await store.put('cats', c); } renderAll(); });
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Escape') renderAll(); });
+  }
+  if (act === 'del') {
+    const c = S.cats.find(x => x.id === id), n = S.items.filter(i => i.cat === id).length;
+    $('#catConfirm').innerHTML = `<div class="confirm"><span>حذف «${esc(c.name)}»؟${n ? ` النصوص (${n}) ستنتقل إلى «بدون تصنيف».` : ''}</span><button class="btn danger" type="button" id="yesCat">احذف</button><button class="btn" type="button" id="noCat">إلغاء</button></div>`;
+    $('#noCat').onclick = () => $('#catConfirm').innerHTML = '';
+    $('#yesCat').onclick = async () => {
+      for (const i of S.items.filter(i => i.cat === id)) { i.cat = NONE; await store.put('items', i); }
+      S.cats = S.cats.filter(x => x.id !== id); await store.del('cats', id);
+      if (S.filter === id) S.filter = 'all'; if (S.dest === id) { S.dest = NONE; prefs.set('dest', NONE); }
+      $('#catConfirm').innerHTML = ''; renderAll(); toast('حُذف التصنيف');
+    };
+  }
+});
+$('#destCat').addEventListener('change', e => { S.dest = e.target.value; prefs.set('dest', S.dest); });
+
+/* ---------- output preference ---------- */
+function renderOut(){ $('#outSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.out === S.out)); }
+$('#outSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.out = b.dataset.out; prefs.set('out', S.out); renderOut();
+  toast(S.out === 'word' ? 'بعد كل تفريغ سيُنزَّل ملف وورد تلقائيًا، ويبقى النص محفوظًا هنا' : 'النص سيظهر في الموقع، ويمكنك تنزيله وورد متى شئت'); });
+renderOut();
+$('#model').value = prefs.get('model', 'Xenova/whisper-small');
+$('#model').addEventListener('change', e => prefs.set('model', e.target.value));
+
+/* ---------- document panel ---------- */
+let saveT;
+function current(){ return S.items.find(i => i.id === S.current); }
+function flashSaved(){ const t = $('#savedTag'); t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => t.hidden = true, 1500); }
+function queueSave(){ clearTimeout(saveT); saveT = setTimeout(async () => { const it = current(); if (!it) return; await store.put('items', it); flashSaved(); renderItems(); }, 500); }
+$('#docTitle').addEventListener('input', e => { const it = current(); if (it) { it.title = e.target.value || 'بدون عنوان'; queueSave(); } });
+$('#docText').addEventListener('input', e => { const it = current(); if (it) { it.text = e.target.value; it.edited = true; queueSave(); } });
+$('#viewSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.view = b.dataset.view; renderDoc(); });
+$('#segments').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const p = $('#player'); if (!p.src) return; p.currentTime = +b.dataset.t; p.play().catch(() => {}); });
+$('#items').addEventListener('click', e => { const b = e.target.closest('.item'); if (!b) return; S.current = b.dataset.id; S.view = 'text'; renderItems(); renderDoc(); $('#docCard').scrollIntoView({behavior:'smooth', block:'start'}); });
+$('#search').addEventListener('input', e => { S.query = e.target.value; renderItems(); });
+$('#moveCat').addEventListener('change', async e => { const it = current(); if (!it) return; it.cat = e.target.value; await store.put('items', it); renderAll(); toast('نُقل إلى «' + catName(it.cat) + '»'); });
+$('#copyBtn').addEventListener('click', async () => { const it = current(); if (!it) return;
+  try { await navigator.clipboard.writeText(it.text || ''); toast('نُسخ النص'); } catch { const t = $('#docText'); t.hidden = false; t.select(); toast('اضغط Ctrl+C لنسخ النص المحدد'); } });
+$('#wordBtn').addEventListener('click', () => { const it = current(); if (it) downloadWord([it], it.title); });
+$('#exportCat').addEventListener('click', () => {
+  const list = S.items.filter(i => S.filter === 'all' || i.cat === S.filter);
+  if (list.length) downloadWord(list, S.filter === 'all' ? 'كل النصوص' : catName(S.filter));
+});
+$('#delBtn').addEventListener('click', () => {
+  const it = current(); if (!it) return;
+  $('#docConfirm').innerHTML = `<div class="confirm"><span>حذف «${esc(it.title)}» نهائيًا؟</span><button class="btn danger" type="button" id="yesDoc">احذف</button><button class="btn" type="button" id="noDoc">إلغاء</button></div>`;
+  $('#noDoc').onclick = () => $('#docConfirm').innerHTML = '';
+  $('#yesDoc').onclick = async () => { S.items = S.items.filter(i => i.id !== it.id); await store.del('items', it.id); S.current = null; renderAll(); toast('حُذف النص'); };
+});
+$('#redoBtn').addEventListener('click', () => { const it = current(); if (it?.audio) transcribeBlob(it.audio, it.title, it); });
+
+/* ---------- Word (.docx) export ---------- */
+function xml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ''); }
+function para(text, {size = 28, bold = false, color = null, after = 160} = {}){
+  const rpr = `<w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}<w:rtl/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`;
+  return `<w:p><w:pPr><w:bidi/><w:spacing w:after="${after}" w:line="360" w:lineRule="auto"/></w:pPr><w:r>${rpr}<w:t xml:space="preserve">${xml(text)}</w:t></w:r></w:p>`;
+}
+async function downloadWord(list, name){
+  if (typeof JSZip === 'undefined') { toast('تعذّر تحميل أداة ملفات وورد، تأكد من اتصال الإنترنت'); return; }
+  let body = '';
+  list.forEach((it, n) => {
+    if (n) body += '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+    body += para(it.title, {size: 40, bold: true, after: 80});
+    body += para(`${catName(it.cat)} · ${fmtDate(it.created)}${it.duration ? ' · المدة ' + fmtTime(it.duration) : ''}`, {size: 20, color: '5B6D68', after: 280});
+    (it.text || '').split(/\n+/).map(s => s.trim()).filter(Boolean).forEach(p => body += para(p));
+  });
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/><w:bidi/></w:sectPr></w:body></w:document>`;
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.file('word/document.xml', doc);
+  const blob = await zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (name || 'نص').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80) + '.docx';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast('نُزّل ملف وورد');
+}
+
+/* ---------- Whisper (runs in a worker, on the device) ---------- */
+const WORKER_SRC = `
+import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+env.allowLocalModels = false;
+env.useBrowserCache = typeof caches !== 'undefined';
+let pipe = null, current = null;
+self.onmessage = async (e) => {
+  const { id, audio, model } = e.data;
+  try {
+    if (!pipe || current !== model) {
+      self.postMessage({ type: 'stage', id, stage: 'load' });
+      pipe = await pipeline('automatic-speech-recognition', model, { quantized: true, progress_callback: p => self.postMessage({ type: 'load', id, p }) });
+      current = model;
+    }
+    self.postMessage({ type: 'stage', id, stage: 'run' });
+    let done = 0;
+    const out = await pipe(audio, { language: 'arabic', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5, return_timestamps: true,
+      chunk_callback: () => { done++; self.postMessage({ type: 'chunk', id, done }); } });
+    self.postMessage({ type: 'done', id, text: out.text, chunks: out.chunks || [] });
+  } catch (err) { self.postMessage({ type: 'error', id, message: String((err && err.message) || err) }); }
+};`;
+let worker = null; const pending = new Map();
+function getWorker(){
+  if (worker) return worker;
+  worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], {type: 'text/javascript'})), {type: 'module'});
+  worker.onmessage = e => { const m = e.data, h = pending.get(m.id); if (h) h(m); };
+  worker.onerror = e => { pending.forEach(h => h({type: 'error', message: e.message || 'تعذّر تشغيل محرّك التفريغ'})); };
+  return worker;
+}
+
+async function decodeTo16k(blob){
+  const buf = await blob.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext; const ctx = new AC();
+  let audio;
+  try { audio = await ctx.decodeAudioData(buf.slice(0)); } finally { ctx.close?.(); }
+  const len = Math.ceil(audio.duration * 16000);
+  const off = new OfflineAudioContext(1, len, 16000);
+  const src = off.createBufferSource(); src.buffer = audio; src.connect(off.destination); src.start();
+  const r = await off.startRendering();
+  return { pcm: r.getChannelData(0), duration: audio.duration };
+}
+
+/* jobs UI */
+let queue = Promise.resolve();
+function addJob(name){
+  $('#jobsCard').hidden = false;
+  const el = document.createElement('div'); el.className = 'job';
+  el.innerHTML = `<span class="name"></span><span class="st">في الانتظار</span><div class="bar indet"><i></i></div>`;
+  el.querySelector('.name').textContent = name; $('#jobs').prepend(el);
+  return {
+    st: (t, cls) => { el.querySelector('.st').textContent = t; if (cls) el.classList.add(cls); },
+    pct: p => { const b = el.querySelector('.bar'); if (p == null) b.classList.add('indet'); else { b.classList.remove('indet'); b.querySelector('i').style.width = Math.min(100, p) + '%'; } },
+    end: () => setTimeout(() => { el.remove(); if (!$('#jobs').children.length) $('#jobsCard').hidden = true; }, 4000)
+  };
+}
+
+function transcribeBlob(blob, name, existing = null, source = 'file'){
+  const job = addJob(name);
+  queue = queue.then(() => runJob(blob, name, existing, source, job)).catch(() => {});
+}
+
+async function runJob(blob, name, existing, source, job){
+  let decoded;
+  try { job.st('جارٍ قراءة الملف'); decoded = await decodeTo16k(blob); }
+  catch { job.st('لم يتمكن المتصفح من قراءة هذا الملف. جرّب تحويله إلى MP3 أو WAV', 'err'); job.pct(0); job.end(); return; }
+  if (decoded.duration < 0.3) { job.st('الملف فارغ أو قصير جدًا', 'err'); job.end(); return; }
+  const model = $('#model').value; const id = uid();
+  const steps = Math.max(1, Math.ceil(Math.max(0, decoded.duration - 30) / 20) + 1);
+  const files = {};
+  const res = await new Promise(resolve => {
+    pending.set(id, m => {
+      if (m.type === 'stage' && m.stage === 'load') { job.st('جارٍ تجهيز نموذج التعرّف على الكلام'); $('#firstLoad').hidden = false; }
+      if (m.type === 'load' && m.p?.status === 'progress' && m.p.total) {
+        files[m.p.file] = m.p; let l = 0, t = 0; Object.values(files).forEach(f => { l += f.loaded || 0; t += f.total || 0; });
+        job.st('تحميل النموذج ' + Math.round(t / 1048576) + ' ميجا'); job.pct(l / t * 100);
+      }
+      if (m.type === 'stage' && m.stage === 'run') { $('#firstLoad').hidden = true; job.st('جارٍ التفريغ · ' + fmtTime(decoded.duration)); job.pct(steps > 1 ? 2 : null); }
+      if (m.type === 'chunk') { job.pct(m.done / steps * 100); job.st(`جارٍ التفريغ · ${Math.min(m.done, steps)} من ${steps}`); }
+      if (m.type === 'done' || m.type === 'error') { pending.delete(id); resolve(m); }
+    });
+    try { getWorker().postMessage({id, audio: decoded.pcm, model}, [decoded.pcm.buffer]); }
+    catch (err) { pending.delete(id); resolve({type: 'error', message: String(err)}); }
+  });
+  if (res.type === 'error') {
+    const net = /fetch|network|load|import/i.test(res.message);
+    job.st(net ? 'تعذّر تحميل النموذج. تأكد من الإنترنت وافتح الموقع من رابط https أو من متصفح Chrome' : 'تعذّر التفريغ: ' + res.message, 'err'); job.end(); return;
+  }
+  const chunks = (res.chunks || []).map(c => ({s: c.timestamp?.[0] ?? 0, t: (c.text || '').trim()})).filter(c => c.t);
+  const text = chunks.length ? joinChunks(chunks) : (res.text || '').trim();
+  let it = existing;
+  if (it) { Object.assign(it, {text, chunks, engine: 'whisper', duration: decoded.duration}); }
+  else {
+    it = {id: uid(), title: name.replace(/\.[a-z0-9]{2,5}$/i, ''), text, chunks, cat: S.dest, created: Date.now(), duration: decoded.duration, audio: blob, source, engine: 'whisper'};
+    S.items.unshift(it);
+  }
+  await store.put('items', it);
+  job.st(text ? 'اكتمل' : 'اكتمل، لكن لم يُلتقط أي كلام', 'done'); job.pct(100); job.end();
+  S.current = it.id; S.view = 'text'; renderAll();
+  if (S.out === 'word' && text) downloadWord([it], it.title);
+  else toast('جاهز: ' + it.title);
+}
+// group short whisper chunks into readable paragraphs (~every 60s or sentence end)
+function joinChunks(chunks){
+  const out = []; let cur = '', start = 0;
+  chunks.forEach(c => { if (!cur) start = c.s; cur += (cur ? ' ' : '') + c.t;
+    if (c.s - start > 55 && /[.!؟?]$/.test(c.t) || c.s - start > 90) { out.push(cur); cur = ''; } });
+  if (cur) out.push(cur); return out.join('\n\n');
+}
+
+/* ---------- upload / drag & drop ---------- */
+const AUDIO_EXT = /\.(mp3|wav|m4a|ogg|oga|opus|flac|aac|webm|mp4|amr|3gp|wma|aiff?|caf)$/i;
+function takeFiles(list){
+  const files = [...list]; let skipped = 0;
+  files.forEach(f => { if (/^(audio|video)\//.test(f.type) || AUDIO_EXT.test(f.name)) transcribeBlob(f, f.name); else skipped++; });
+  if (skipped) toast(skipped === 1 ? 'تم تجاهل ملف ليس صوتيًا' : `تم تجاهل ${skipped} ملفات ليست صوتية`);
+}
+const drop = $('#drop');
+drop.addEventListener('click', () => $('#fileIn').click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#fileIn').click(); } });
+$('#fileIn').addEventListener('change', e => { takeFiles(e.target.files); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => takeFiles(e.dataTransfer.files));
+// let a file dropped anywhere on the page still work
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => { if (!drop.contains(e.target)) { e.preventDefault(); if (e.dataTransfer?.files?.length) takeFiles(e.dataTransfer.files); } });
+
+/* ---------- live recording ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const R = { on: false, rec: null, sr: null, chunks: [], finalText: '', interim: '', start: 0, tick: null, stream: null, raf: null };
+function setLive(){ $('#live').innerHTML = (R.finalText || R.interim) ? esc(R.finalText) + (R.interim ? ` <i>${esc(R.interim)}</i>` : '') : '<i>' + (R.on ? (SR ? 'تكلّم الآن…' : 'جارٍ التسجيل، سيُفرَّغ الصوت بعد الإيقاف') : 'سيظهر الكلام هنا أثناء التسجيل') + '</i>'; }
+
+async function startRec(){
+  try { R.stream = await navigator.mediaDevices.getUserMedia({audio: {echoCancellation: true, noiseSuppression: true}}); }
+  catch (e) { toast(location.protocol === 'file:' || !window.isSecureContext ? 'المايكروفون يحتاج أن يُفتح الموقع من رابط https' : 'لم يُسمح بالوصول إلى المايكروفون. فعّله من إعدادات المتصفح'); return; }
+  R.on = true; R.chunks = []; R.finalText = ''; R.interim = ''; R.start = Date.now();
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
+  R.rec = new MediaRecorder(R.stream, type ? {mimeType: type} : undefined);
+  R.rec.ondataavailable = e => e.data.size && R.chunks.push(e.data);
+  R.rec.onstop = finishRec; R.rec.start(1000);
+  if (SR) {
+    const sr = new SR(); sr.lang = 'ar-SA'; sr.continuous = true; sr.interimResults = true;
+    sr.onresult = e => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) R.finalText += (R.finalText ? ' ' : '') + r[0].transcript.trim(); else interim += r[0].transcript; } R.interim = interim; setLive(); };
+    sr.onend = () => { if (R.on) try { sr.start(); } catch {} };
+    sr.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') R.sr = null; };
+    try { sr.start(); R.sr = sr; } catch { R.sr = null; }
+  }
+  $('#recBtn').classList.add('on'); $('#recBtn').setAttribute('aria-label', 'أوقف التسجيل');
+  $('#recIcon').innerHTML = '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>';
+  R.tick = setInterval(() => $('#timer').textContent = fmtTime((Date.now() - R.start) / 1000), 250);
+  drawWave(); setLive();
+}
+function stopRec(){
+  R.on = false; try { R.sr?.stop(); } catch {}
+  R.rec?.state !== 'inactive' && R.rec.stop();
+  R.stream?.getTracks().forEach(t => t.stop());
+  clearInterval(R.tick); cancelAnimationFrame(R.raf);
+  $('#recBtn').classList.remove('on'); $('#recBtn').setAttribute('aria-label', 'ابدأ التسجيل');
+  $('#recIcon').innerHTML = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>';
+}
+async function finishRec(){
+  const blob = new Blob(R.chunks, {type: R.rec.mimeType || 'audio/webm'});
+  const dur = (Date.now() - R.start) / 1000;
+  const name = 'تسجيل ' + fmtDate(Date.now());
+  const text = (R.finalText + (R.interim ? ' ' + R.interim : '')).trim();
+  R.interim = ''; setLive();
+  if (dur < 1) { toast('التسجيل قصير جدًا'); return; }
+  if (text) {
+    const it = {id: uid(), title: name, text, chunks: [], cat: S.dest, created: Date.now(), duration: dur, audio: blob, source: 'rec', engine: 'live'};
+    S.items.unshift(it); await store.put('items', it); S.current = it.id; S.view = 'text'; renderAll();
+    if (S.out === 'word') downloadWord([it], it.title); else toast('حُفظ التسجيل ونصّه');
+  } else {
+    transcribeBlob(blob, name, null, 'rec');
+  }
+}
+$('#recBtn').addEventListener('click', () => R.on ? stopRec() : startRec());
+
+function drawWave(){
+  const cv = $('#wave'), g = cv.getContext('2d');
+  let an;
+  try { const ac = new (window.AudioContext || window.webkitAudioContext)(); an = ac.createAnalyser(); an.fftSize = 512; ac.createMediaStreamSource(R.stream).connect(an); R.ac = ac; } catch { return; }
+  const data = new Uint8Array(an.fftSize), color = getComputedStyle(document.documentElement).getPropertyValue('--rec').trim() || '#C8372D';
+  const loop = () => {
+    if (!R.on) { g.clearRect(0, 0, cv.width, cv.height); R.ac?.close?.(); return; }
+    an.getByteTimeDomainData(data); g.clearRect(0, 0, cv.width, cv.height); g.fillStyle = color;
+    const bars = 60, w = cv.width / bars;
+    for (let i = 0; i < bars; i++) { let m = 0; for (let j = 0; j < 8; j++) m = Math.max(m, Math.abs(data[i * 8 + j] - 128)); const h = Math.max(2, m / 128 * cv.height * 1.8); g.fillRect(i * w + 2, (cv.height - h) / 2, w - 4, Math.min(h, cv.height)); }
+    R.raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+/* ---------- environment hint ---------- */
+(function(){
+  const msgs = [];
+  if (!window.isSecureContext) msgs.push('<b>التسجيل بالمايكروفون</b> يحتاج أن يُفتح الموقع من رابط https. رفع الملفات وتفريغها يعمل عادي.');
+  if (!SR) msgs.push('متصفحك لا يدعم الكتابة الفورية أثناء التسجيل، لذلك سيُفرَّغ التسجيل بعد إيقافه. للكتابة الفورية استخدم <b>Google Chrome</b>.');
+  if (msgs.length) { $('#envHint').innerHTML = msgs.join('<br>'); $('#envHint').hidden = false; }
+})();
+
+load();
+</script>
+</body>
+</html>
